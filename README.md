@@ -2,7 +2,7 @@
 
 Local-first, ₹0 observability + interpretability + causal debugging for AI systems.
 
-- Architecture: [docs/architecture/](docs/architecture/) (ADD v1.1) · Decisions: [docs/adr/](docs/adr/)
+- Architecture: [ADD v1.1](docs/architecture/AI_Black_Box_Lab_Architecture_v1.1_Free_Tier.md) · Decisions: [docs/adr/](docs/adr/README.md)
 - Engineering rules (mandatory): [rules_v1.1.md](rules_v1.1.md)
 - Phase 1 plan: [docs/phase1_implementation_plan.md](docs/phase1_implementation_plan.md)
 
