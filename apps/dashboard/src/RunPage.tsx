@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ApiRequestError, fetchRun } from "./api";
-import type { InvocationOut, RetrievalOut, RunOut, SpanOut } from "./types";
+import { ApiRequestError, fetchArtifact, fetchRun } from "./api";
+import type { ArtifactOut, InvocationOut, RetrievalOut, RunOut, SpanOut } from "./types";
 
 type State =
   | { kind: "loading" }
@@ -29,6 +29,42 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
     <>
       <dt>{label}</dt>
       <dd>{value}</dd>
+    </>
+  );
+}
+
+type ArtifactState =
+  | { kind: "loading" }
+  | { kind: "ready"; artifact: ArtifactOut }
+  | { kind: "failed"; message: string };
+
+// Shows the result of a fresh checksum check; a null ID means nothing was stored.
+function ArtifactStatus({ artifactId }: { artifactId: string | null }) {
+  const [state, setState] = useState<ArtifactState>({ kind: "loading" });
+
+  useEffect(() => {
+    if (!artifactId) return;
+    const controller = new AbortController();
+    fetchArtifact(artifactId, controller.signal).then(
+      (artifact) => setState({ kind: "ready", artifact }),
+      (err: unknown) => {
+        if (controller.signal.aborted) return;
+        setState({ kind: "failed", message: err instanceof Error ? err.message : String(err) });
+      },
+    );
+    return () => controller.abort();
+  }, [artifactId]);
+
+  if (!artifactId) return <>{NOT_CAPTURED}</>;
+  if (state.kind === "loading") return <>checking…</>;
+  if (state.kind === "failed") return <>✖ could not check artifact: {state.message}</>;
+  const { artifact } = state;
+  return (
+    <>
+      <code>{artifact.id}</code> ·{" "}
+      {artifact.verified
+        ? "✔ checksum verified"
+        : `✖ integrity check failed: ${artifact.integrity_error ?? "unknown"}`}
     </>
   );
 }
@@ -73,6 +109,7 @@ function RetrievedDocument({ retrievals }: { retrievals: RetrievalOut[] }) {
             }
           />
           <Field label="Document hash (SHA-256)" value={<code>{document.sha256}</code>} />
+          <Field label="Stored artifact" value={<ArtifactStatus artifactId={document.artifact_id} />} />
         </dl>
       ))}
     </Section>
@@ -91,6 +128,7 @@ function Invocations({ invocations }: { invocations: InvocationOut[] }) {
           <Field label="Prompt hash (SHA-256)" value={<code>{inv.prompt_sha256}</code>} />
           <Field label="Output hash (SHA-256)" value={<code>{inv.output_sha256 ?? NOT_CAPTURED}</code>} />
           <Field label="Linked span" value={<code>{inv.span_id ?? NOT_CAPTURED}</code>} />
+          <Field label="Prompt artifact" value={<ArtifactStatus artifactId={inv.prompt_artifact_id} />} />
           <Field
             label="Neural access"
             value={inv.neural_access === "unavailable" ? "unavailable: no activations were captured" : "available"}

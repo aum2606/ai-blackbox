@@ -1,4 +1,4 @@
-import type { ApiErrorBody, RunOut } from "./types";
+import type { ApiErrorBody, ArtifactOut, RunOut } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -9,9 +9,9 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function fetchRun(runId: string, signal: AbortSignal): Promise<RunOut> {
-  const response = await fetch(`/v1/runs/${encodeURIComponent(runId)}`, { signal });
-  if (response.ok) return (await response.json()) as RunOut;
+async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
+  const response = await fetch(path, { signal });
+  if (response.ok) return (await response.json()) as T;
   let body: ApiErrorBody | null = null;
   try {
     body = (await response.json()) as ApiErrorBody;
@@ -23,3 +23,9 @@ export async function fetchRun(runId: string, signal: AbortSignal): Promise<RunO
     body?.error.message ?? `Request failed with HTTP ${response.status}`,
   );
 }
+
+export const fetchRun = (runId: string, signal: AbortSignal) =>
+  getJson<RunOut>(`/v1/runs/${encodeURIComponent(runId)}`, signal);
+
+export const fetchArtifact = (artifactId: string, signal: AbortSignal) =>
+  getJson<ArtifactOut>(`/v1/artifacts/${encodeURIComponent(artifactId)}`, signal);

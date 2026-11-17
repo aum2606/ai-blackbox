@@ -8,6 +8,7 @@ export interface DocumentOut {
   sha256: string;
   valid_from: string;
   valid_to: string | null; // null marks the current version
+  artifact_id: string | null;
 }
 
 export interface RetrievalOut {
@@ -28,7 +29,19 @@ export interface InvocationOut {
   output_sha256: string | null;
   sampling_config: Record<string, unknown>;
   neural_access: "available" | "unavailable";
+  prompt_artifact_id: string | null; // null unless the run opted in to content capture
   created_at: string;
+}
+
+export interface ArtifactOut {
+  id: string;
+  sha256: string;
+  mime_type: string;
+  nbytes: number;
+  category: string;
+  parents: string[];
+  verified: boolean; // re-hashed on this request
+  integrity_error: string | null;
 }
 
 export interface SpanOut {
