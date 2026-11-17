@@ -1,0 +1,10 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.5; }
+main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
+section { border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent); margin-top: 1.5rem; }
+h2 { font-size: 1.1rem; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
+dt { font-weight: 600; }
+dd { margin: 0; overflow-wrap: anywhere; }
+code { font-size: 0.85em; overflow-wrap: anywhere; }
+.badge { font-size: 0.7rem; font-weight: 400; border: 1px solid currentColor; border-radius: 0.75rem; padding: 0 0.5rem; vertical-align: middle; }
+.spans { list-style: none; padding: 0; }
