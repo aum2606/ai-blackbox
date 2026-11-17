@@ -54,7 +54,7 @@ Recorded as **ADR-011**. It also covers the deferred items from ADR-010 that lan
 | 4 | `feat(store): migration 0003` | New tables `token_sequences`, `capture_jobs` and `measurements` (§4) | Up/down and FK tests |
 | 5 | `feat(instrumentation): pythia adapter` | `packages/instrumentation/pythia.py`: load the pinned revision, tokenize, greedy generate, forward logits, capture at positions. `capabilities.py` holds the static hook list and model dimensions (6 layers, `d_model` 512) | Neural tests: shapes, read-only logits within tolerance, golden logits |
 | 6 | `feat(demo): real-model runs from the CLI` | `--model pythia-70m-deduped`: render the prompt, tokenize, generate 4 tokens greedily, decode. The invocation gets `neural_access=available` and the real revision. Token sequences are stored only on opt-in | Neural integration test; default tests unaffected |
-| 7 | `feat(worker): capture jobs` | `workers/experiment_worker` (`python -m experiment_worker run-once`): recover stale jobs, claim one queued job atomically, run the capture, store artifacts and measurements, then complete. Timeout and errors are structured | Unit tests with a stub adapter (state machine, claim, error codes); neural end-to-end test |
+| 7 | `feat(worker): capture jobs` | `workers/experiment_worker` (`python -m experiment_worker`): recover stale jobs, claim one queued job atomically, run the capture, store artifacts and measurements, then complete. Timeout and errors are structured | Unit tests with a stub adapter (state machine, claim, error codes); neural end-to-end test |
 | 8 | `feat(api): captures and measurements` | Capture endpoint with validation; capture status; measurements list (summaries only) | Contract tests; OpenAPI snapshot refreshed |
 | 9 | `feat(dashboard): neural explorer MVP` | Layer × position grid of L2 norms. Provenance and replay status. "not captured" or "neural access unavailable" when absent | Lint, typecheck, build; browser check |
 | 10 | `docs(runbook): phase 3` | Setup of the neural group, the download note, how to run the worker, limitations. Tag `v0.3-neural`; push only when you say so | Fresh-clone run-through |
@@ -75,7 +75,7 @@ Recorded as **ADR-011**. It also covers the deferred items from ADR-010 that lan
 
 ```text
 token_sequences (id PK, invocation_id FK, role CHECK(prompt|output), tokenizer_revision,
-                 n_tokens, artifact_id FK artifacts, created_at)          -- int32 safetensors
+                 n_tokens, artifact_id FK artifacts, created_at)          -- JSON artifact `{"token_ids": [...]}`
 capture_jobs    (id PK, invocation_id FK, plan_json, plan_sha256, status CHECK(queued|running|
                  completed|failed|blocked_resource), error_type NULL, replay_json NULL,
                  created_at, started_at NULL, ended_at NULL)
