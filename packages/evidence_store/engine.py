@@ -15,6 +15,15 @@ def database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_URL)
 
 
+def artifact_root() -> Path:
+    return Path(os.environ.get("ARTIFACT_ROOT", "./.local/artifacts"))
+
+
+def max_artifact_bytes() -> int:
+    """Disk quota for all stored artifacts (initial default 1 GiB, ADD §12.4)."""
+    return int(os.environ.get("MAX_LOCAL_ARTIFACT_BYTES", str(1024**3)))
+
+
 def make_engine(url: str) -> Engine:
     parsed = make_url(url)
     if parsed.database and parsed.database != ":memory:":
