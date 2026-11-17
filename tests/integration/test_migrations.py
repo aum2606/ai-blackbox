@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PHASE1_TABLES = {"runs", "documents", "model_invocations", "retrieval_results", "spans"}
+PHASE2_TABLES = {"artifacts", "artifact_lineage", "trace_events"}
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def test_upgrade_then_downgrade(db_url: str) -> None:
     config = _alembic(db_url)
     command.upgrade(config, "head")
     engine = make_engine(db_url)
-    assert PHASE1_TABLES <= set(inspect(engine).get_table_names())
+    assert PHASE1_TABLES | PHASE2_TABLES <= set(inspect(engine).get_table_names())
     engine.dispose()
 
     command.downgrade(config, "base")
@@ -51,4 +52,29 @@ def test_every_connection_enforces_foreign_keys_and_wal(db_url: str) -> None:
                     "'unavailable','2026-11-17T00:00:00Z')"
                 )
             )
+    engine.dispose()
+
+
+def test_phase2_downgrade_restores_phase1_schema(db_url: str) -> None:
+    config = _alembic(db_url)
+    command.upgrade(config, "head")
+    command.downgrade(config, "0001")
+    engine = make_engine(db_url)
+    tables = set(inspect(engine).get_table_names())
+    assert PHASE1_TABLES <= tables and not PHASE2_TABLES & tables
+    assert "artifact_id" not in {c["name"] for c in inspect(engine).get_columns("documents")}
+    engine.dispose()
+
+
+def test_artifact_references_are_foreign_keys(db_url: str) -> None:
+    command.upgrade(_alembic(db_url), "head")
+    engine = make_engine(db_url)
+    with engine.connect() as connection, pytest.raises(IntegrityError):
+        connection.execute(
+            text(
+                "INSERT INTO documents (id, corpus_id, doc_key, version, sha256, source_path,"
+                " valid_from, artifact_id) VALUES ('doc_x','c','k',1,'h','p','2025-01-01',"
+                "'art_missing')"
+            )
+        )
     engine.dispose()
