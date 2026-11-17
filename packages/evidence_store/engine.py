@@ -24,6 +24,11 @@ def max_artifact_bytes() -> int:
     return int(os.environ.get("MAX_LOCAL_ARTIFACT_BYTES", str(1024**3)))
 
 
+def max_capture_bytes() -> int:
+    """Cap on the tensor bytes one capture request may ask for (ADD §7.3)."""
+    return int(os.environ.get("MAX_CAPTURE_BYTES", str(64 * 1024 * 1024)))
+
+
 def make_engine(url: str) -> Engine:
     parsed = make_url(url)
     if parsed.database and parsed.database != ":memory:":

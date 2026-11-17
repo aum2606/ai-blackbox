@@ -96,6 +96,153 @@
         "title": "ArtifactOut",
         "type": "object"
       },
+      "CaptureJobOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invocation_id": {
+            "title": "Invocation Id",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/CapturePlanOut"
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replay"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "blocked_resource"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "invocation_id",
+          "status",
+          "error_type",
+          "plan",
+          "replay",
+          "created_at",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "CaptureJobOut",
+        "type": "object"
+      },
+      "CapturePlanOut": {
+        "properties": {
+          "hooks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hooks",
+            "type": "array"
+          },
+          "include_logits": {
+            "title": "Include Logits",
+            "type": "boolean"
+          },
+          "positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Positions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hooks",
+          "positions",
+          "include_logits"
+        ],
+        "title": "CapturePlanOut",
+        "type": "object"
+      },
+      "CaptureRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "hooks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hooks",
+            "type": "array"
+          },
+          "include_logits": {
+            "default": false,
+            "title": "Include Logits",
+            "type": "boolean"
+          },
+          "token_positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Token Positions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hooks",
+          "token_positions"
+        ],
+        "title": "CaptureRequest",
+        "type": "object"
+      },
       "DocumentOut": {
         "properties": {
           "artifact_id": {
@@ -319,6 +466,85 @@
           "created_at"
         ],
         "title": "InvocationOut",
+        "type": "object"
+      },
+      "MeasurementOut": {
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "capture_job_id": {
+            "title": "Capture Job Id",
+            "type": "string"
+          },
+          "dtype": {
+            "title": "Dtype",
+            "type": "string"
+          },
+          "evidence_class": {
+            "const": "measured",
+            "default": "measured",
+            "title": "Evidence Class",
+            "type": "string"
+          },
+          "hook_name": {
+            "title": "Hook Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "activation",
+              "logits"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
+          },
+          "shape": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Shape",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          },
+          "token_position": {
+            "title": "Token Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "capture_job_id",
+          "kind",
+          "hook_name",
+          "layer",
+          "token_position",
+          "artifact_id",
+          "dtype",
+          "shape",
+          "summary"
+        ],
+        "title": "MeasurementOut",
         "type": "object"
       },
       "RetrievalOut": {
@@ -685,6 +911,55 @@
         "summary": "Get Artifact"
       }
     },
+    "/v1/captures/{job_id}": {
+      "get": {
+        "operationId": "get_capture_v1_captures__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Capture"
+      }
+    },
     "/v1/health": {
       "get": {
         "operationId": "health_v1_health_get",
@@ -750,6 +1025,120 @@
           }
         },
         "summary": "Get Invocation"
+      }
+    },
+    "/v1/invocations/{invocation_id}/captures": {
+      "post": {
+        "description": "Validate and queue a capture; the worker process does the model work.",
+        "operationId": "create_capture_v1_invocations__invocation_id__captures_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invocation_id",
+            "required": true,
+            "schema": {
+              "title": "Invocation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Capture"
+      }
+    },
+    "/v1/invocations/{invocation_id}/measurements": {
+      "get": {
+        "description": "Summaries only; each measurement points to its verified tensor artifact.",
+        "operationId": "list_measurements_v1_invocations__invocation_id__measurements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invocation_id",
+            "required": true,
+            "schema": {
+              "title": "Invocation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MeasurementOut"
+                  },
+                  "title": "Response List Measurements V1 Invocations  Invocation Id  Measurements Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Measurements"
       }
     },
     "/v1/runs": {

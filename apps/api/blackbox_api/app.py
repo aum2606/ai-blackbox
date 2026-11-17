@@ -10,10 +10,12 @@ from typing import Any
 from demo_rag.fixtures import FixtureError, load_case
 from demo_rag.pipeline import run_case
 from evidence_store.artifacts import ArtifactError, get_verified
-from evidence_store.engine import artifact_root, database_url, make_engine
+from evidence_store.engine import artifact_root, database_url, make_engine, max_capture_bytes
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from instrumentation.plan import CaptureError, CapturePlan, build_plan
+from run_registry import captures
 from run_registry import queries as registry_queries
 from sqlalchemy import Engine
 from trace_ingest.exporter import make_tracer_provider
@@ -22,9 +24,13 @@ from trace_ingest.queries import list_spans
 from blackbox_api.schemas import (
     AnswerOut,
     ArtifactOut,
+    CaptureJobOut,
+    CapturePlanOut,
+    CaptureRequest,
     ErrorOut,
     HealthOut,
     InvocationOut,
+    MeasurementOut,
     RetrievalOut,
     RunCreate,
     RunCreated,
@@ -33,6 +39,13 @@ from blackbox_api.schemas import (
 )
 
 _log = logging.getLogger(__name__)
+_CAPTURE_STATUS = {
+    "NEURAL_ACCESS_UNAVAILABLE": 409,
+    "PRIVACY_RESTRICTED": 403,
+    "HOOK_UNSUPPORTED": 422,
+    "POSITION_OUT_OF_RANGE": 422,
+    "CAPTURE_TOO_LARGE": 422,
+}
 _ERRORS: dict[int | str, dict[str, Any]] = {404: {"model": ErrorOut}}
 
 
@@ -72,6 +85,10 @@ def create_app(engine: Engine, store_root: Path) -> FastAPI:
     async def _fixture_error(request: Request, err: FixtureError) -> JSONResponse:
         status = 404 if err.code == "CASE_NOT_FOUND" else 500
         return _error(request, status, err.code, str(err))
+
+    @app.exception_handler(CaptureError)
+    async def _capture_error(request: Request, err: CaptureError) -> JSONResponse:
+        return _error(request, _CAPTURE_STATUS.get(err.code, 422), err.code, str(err))
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(request: Request, err: RequestValidationError) -> JSONResponse:
@@ -167,6 +184,81 @@ def create_app(engine: Engine, store_root: Path) -> FastAPI:
             verified=integrity_error is None,
             integrity_error=integrity_error,
         )
+
+    def _job_out(job: captures.JobRecord) -> CaptureJobOut:
+        plan = CapturePlan.from_json(job.plan_json)
+        return CaptureJobOut(
+            id=job.id,
+            invocation_id=job.invocation_id,
+            status=job.status,  # type: ignore[arg-type]  # constrained by the table CHECK
+            error_type=job.error_type,
+            plan=CapturePlanOut(
+                hooks=list(plan.hooks),
+                positions=list(plan.positions),
+                include_logits=plan.include_logits,
+            ),
+            replay=job.replay,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            ended_at=job.ended_at,
+        )
+
+    @app.post(
+        "/v1/invocations/{invocation_id}/captures",
+        status_code=202,
+        response_model=CaptureJobOut,
+        responses=_ERRORS,
+    )
+    def create_capture(invocation_id: str, body: CaptureRequest) -> CaptureJobOut:
+        """Validate and queue a capture; the worker process does the model work."""
+        with engine.begin() as conn:
+            invocation = registry_queries.get_invocation(conn, invocation_id)
+            if invocation is None:
+                raise ApiError(404, "INVOCATION_NOT_FOUND", f"unknown invocation {invocation_id!r}")
+            if invocation.neural_access != "available":
+                raise CaptureError(
+                    "NEURAL_ACCESS_UNAVAILABLE", "this invocation has no model internals to read"
+                )
+            sequences = captures.token_sequences(conn, invocation_id)
+            if "prompt" not in sequences or "output" not in sequences:
+                raise CaptureError(
+                    "PRIVACY_RESTRICTED", "token IDs were not stored; the run did not opt in"
+                )
+            plan = build_plan(
+                body.hooks,
+                body.token_positions,
+                include_logits=body.include_logits,
+                n_tokens=sequences["prompt"].n_tokens + sequences["output"].n_tokens,
+                max_bytes=max_capture_bytes(),
+            )
+            job, _ = captures.create_job(
+                conn,
+                invocation_id=invocation_id,
+                plan_json=plan.canonical_json(),
+                plan_sha256=plan.sha256,
+            )
+        return _job_out(job)
+
+    @app.get("/v1/captures/{job_id}", response_model=CaptureJobOut, responses=_ERRORS)
+    def get_capture(job_id: str) -> CaptureJobOut:
+        with engine.connect() as conn:
+            job = captures.get_job(conn, job_id)
+        if job is None:
+            raise ApiError(404, "CAPTURE_NOT_FOUND", f"unknown capture {job_id!r}")
+        return _job_out(job)
+
+    @app.get(
+        "/v1/invocations/{invocation_id}/measurements",
+        response_model=list[MeasurementOut],
+        responses=_ERRORS,
+    )
+    def list_measurements(invocation_id: str) -> list[MeasurementOut]:
+        """Summaries only; each measurement points to its verified tensor artifact."""
+        with engine.connect() as conn:
+            if registry_queries.get_invocation(conn, invocation_id) is None:
+                raise ApiError(404, "INVOCATION_NOT_FOUND", f"unknown invocation {invocation_id!r}")
+            records = captures.list_measurements(conn, invocation_id)
+        return [MeasurementOut.model_validate(r) for r in records]
 
     return app
 

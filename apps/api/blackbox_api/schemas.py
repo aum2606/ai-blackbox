@@ -103,6 +103,46 @@ class RunOut(BaseModel):
     spans: list[SpanOut]
 
 
+class CaptureRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hooks: list[str]
+    token_positions: list[int]  # negative values count from the end of prompt + output
+    include_logits: bool = False
+
+
+class CapturePlanOut(BaseModel):
+    hooks: list[str]
+    positions: list[int]  # resolved absolute positions
+    include_logits: bool
+
+
+class CaptureJobOut(BaseModel):
+    id: str
+    invocation_id: str
+    status: Literal["queued", "running", "completed", "failed", "blocked_resource"]
+    error_type: str | None
+    plan: CapturePlanOut
+    replay: dict[str, Any] | None  # how the replay was run and how well it matched; null until done
+    created_at: str
+    started_at: str | None
+    ended_at: str | None
+
+
+class MeasurementOut(_FromRecord):
+    id: str
+    capture_job_id: str
+    kind: Literal["activation", "logits"]
+    hook_name: str
+    layer: int | None
+    token_position: int
+    artifact_id: str  # the tensor itself: GET /v1/artifacts/{id} verifies it, bytes are not served
+    dtype: str
+    shape: list[int]
+    summary: dict[str, Any]
+    evidence_class: Literal["measured"] = "measured"  # a number read from the model, not a label
+
+
 class HealthOut(BaseModel):
     status: Literal["ok"]
 
