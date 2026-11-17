@@ -11,6 +11,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
+def artifact_root(tmp_path: Path) -> Path:
+    return tmp_path / "artifacts"  # kept apart from the database file in tmp_path
+
+
+@pytest.fixture
 def engine(tmp_path: Path) -> Iterator[Engine]:
     """Engine on a fresh, fully migrated SQLite file."""
     url = f"sqlite:///{tmp_path / 'blackbox.db'}"

@@ -5,9 +5,13 @@ connection as spans end; one long write transaction would lock it out.
 """
 
 import hashlib
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from evidence_store.artifacts import put_bytes
 from openinference.semconv.trace import (
     DocumentAttributes,
     OpenInferenceSpanKindValues,
@@ -16,7 +20,9 @@ from openinference.semconv.trace import (
 from opentelemetry.trace import Status, StatusCode, Tracer
 from run_registry import registry
 from sqlalchemy import Engine
+from trace_ingest.events import record_event
 from trace_ingest.exporter import INVOCATION_ID_ATTR, RUN_ID_ATTR
+from trace_schema.ir import SCHEMA_VERSION, EvidenceClass, Provenance, TraceEvent
 
 from demo_rag import model
 from demo_rag.fixtures import DEFAULT_ROOT, load_case
@@ -24,6 +30,7 @@ from demo_rag.retriever import RetrievalFault, retrieve
 
 TASK_ID = "stale_document"
 CORPUS_ID = "stale_document_v1"
+INSTRUMENTATION_VERSION = "phase2"
 SPAN_KIND = SpanAttributes.OPENINFERENCE_SPAN_KIND
 _DOC0 = f"{SpanAttributes.RETRIEVAL_DOCUMENTS}.0"
 
@@ -40,9 +47,42 @@ def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _emit(
+    engine: Engine,
+    *,
+    event_type: str,
+    run_id: str,
+    trace_id: str,
+    span_id: str,
+    payload: dict[str, Any],
+    invocation_id: str | None = None,
+) -> None:
+    """Record an ``observed`` AI Trace IR event for something the pipeline directly saw."""
+    event = TraceEvent(
+        schema_version=SCHEMA_VERSION,
+        event_id=f"evt_{uuid.uuid4().hex}",
+        event_type=event_type,
+        evidence_class=EvidenceClass.OBSERVED,
+        occurred_at=datetime.now(UTC),
+        run_id=run_id,
+        trace_id=trace_id,
+        span_id=span_id,
+        model_invocation_id=invocation_id,
+        payload=payload,
+        provenance=Provenance(
+            model_revision=model.MODEL_REVISION,
+            tokenizer_revision=model.TOKENIZER_REVISION,
+            instrumentation_version=INSTRUMENTATION_VERSION,
+        ),
+    )
+    with engine.begin() as conn:
+        record_event(conn, event)
+
+
 def run_case(
     engine: Engine,
     tracer: Tracer,
+    artifact_root: Path,
     case_id: str,
     fault: RetrievalFault,
     *,
@@ -52,6 +92,12 @@ def run_case(
     # Fixture errors (unknown case, tampered files) propagate before any run is created.
     case = load_case(case_id, fixture_root)
     with engine.begin() as conn:
+        document_artifacts = {
+            d.version: put_bytes(
+                conn, artifact_root, d.text.encode("utf-8"), mime_type="text/plain", category="raw"
+            )
+            for d in case.documents
+        }
         document_ids = {
             d.version: registry.upsert_document(
                 conn,
@@ -62,6 +108,7 @@ def run_case(
                 source_path=d.relative_path,
                 valid_from=d.valid_from,
                 valid_to=d.valid_to,
+                artifact_id=document_artifacts[d.version],
             )
             for d in case.documents
         }
@@ -95,6 +142,7 @@ def run_case(
                         SPAN_KIND: OpenInferenceSpanKindValues.RETRIEVER.value,
                     },
                 ) as span:
+                    retriever_span_id = f"{span.get_span_context().span_id:016x}"
                     document = retrieve(case, fault)
                     span.set_attributes(
                         {
@@ -112,9 +160,39 @@ def run_case(
                             f"{_DOC0}.{DocumentAttributes.DOCUMENT_CONTENT}", document.text
                         )
 
+                _emit(
+                    engine,
+                    event_type="retrieval.document.selected",
+                    run_id=run_id,
+                    trace_id=trace_id,
+                    span_id=retriever_span_id,
+                    payload={
+                        "document_id": document_ids[document.version],
+                        "doc_key": case.doc_key,
+                        "version": document.version,
+                        "sha256": document.sha256,
+                        "artifact_id": document_artifacts[document.version],
+                        "rank": 1,
+                        "score": 1.0,
+                    },
+                )
+
                 prompt = model.render_prompt(document.text, case.question)
                 # The invocation ID exists before the model call so it can be put on the span.
                 with engine.begin() as conn:
+                    # Prompt text is stored only on explicit opt-in (ADR-007).
+                    prompt_artifact_id = (
+                        put_bytes(
+                            conn,
+                            artifact_root,
+                            prompt.encode("utf-8"),
+                            mime_type="text/plain",
+                            category="derived",
+                            parents=[document_artifacts[document.version]],
+                        )
+                        if capture_content
+                        else None
+                    )
                     invocation_id = registry.create_invocation(
                         conn,
                         run_id=run_id,
@@ -124,6 +202,7 @@ def run_case(
                         prompt_sha256=_sha256(prompt),
                         sampling_config={"deterministic": True},
                         neural_access=model.NEURAL_ACCESS,
+                        prompt_artifact_id=prompt_artifact_id,
                     )
                 llm_span_id = ""
                 output_sha256 = None
@@ -150,6 +229,20 @@ def run_case(
                         registry.complete_invocation(
                             conn, invocation_id, span_id=llm_span_id, output_sha256=output_sha256
                         )
+                    _emit(
+                        engine,
+                        event_type="model.invocation.completed",
+                        run_id=run_id,
+                        trace_id=trace_id,
+                        span_id=llm_span_id,
+                        invocation_id=invocation_id,
+                        payload={
+                            "prompt_sha256": _sha256(prompt),
+                            "output_sha256": output_sha256,
+                            "prompt_artifact_id": prompt_artifact_id,
+                            "neural_access": model.NEURAL_ACCESS,
+                        },
+                    )
                 with engine.begin() as conn:
                     registry.record_retrieval(
                         conn,

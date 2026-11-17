@@ -1,13 +1,15 @@
 """Phase 1 exit test: from an answer, reach the exact document version and model invocation."""
 
+from pathlib import Path
+
 from blackbox_api.app import create_app
 from demo_rag.fixtures import load_case
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 
-def test_answer_to_document_version_and_invocation(engine: Engine) -> None:
-    client = TestClient(create_app(engine))
+def test_answer_to_document_version_and_invocation(engine: Engine, artifact_root: Path) -> None:
+    client = TestClient(create_app(engine, artifact_root))
     created = client.post(
         "/v1/runs",
         json={"case_id": "case_0007", "retrieval_fault": "stale_version", "capture_content": True},
@@ -36,8 +38,8 @@ def test_answer_to_document_version_and_invocation(engine: Engine) -> None:
     assert {s["trace_id"] for s in run["spans"]} == {run["trace_id"]}
 
 
-def test_current_document_gives_a_correct_answer(engine: Engine) -> None:
-    client = TestClient(create_app(engine))
+def test_current_document_gives_a_correct_answer(engine: Engine, artifact_root: Path) -> None:
+    client = TestClient(create_app(engine, artifact_root))
     run_id = client.post("/v1/runs", json={"case_id": "case_0007"}).json()["run_id"]
     run = client.get(f"/v1/runs/{run_id}").json()
     assert run["is_correct"] is True and run["retrievals"][0]["document"]["version"] == 2

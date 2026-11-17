@@ -4,11 +4,12 @@ import hashlib
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from demo_rag.fixtures import FixtureError, load_case
 from demo_rag.pipeline import run_case
-from evidence_store.engine import database_url, make_engine
+from evidence_store.engine import artifact_root, database_url, make_engine
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -47,7 +48,7 @@ def _error(request: Request, status: int, code: str, message: str) -> JSONRespon
     return JSONResponse(body.model_dump(), status_code=status, headers={"X-Request-ID": request_id})
 
 
-def create_app(engine: Engine) -> FastAPI:
+def create_app(engine: Engine, store_root: Path) -> FastAPI:
     app = FastAPI(title="AI Black Box Lab API", version="0.1.0")
     tracer = make_tracer_provider(engine).get_tracer("blackbox_api")
 
@@ -91,6 +92,7 @@ def create_app(engine: Engine) -> FastAPI:
         result = run_case(
             engine,
             tracer,
+            store_root,
             body.case_id,
             body.retrieval_fault,
             capture_content=body.capture_content,
@@ -146,4 +148,4 @@ def create_app(engine: Engine) -> FastAPI:
 
 def app_from_env() -> FastAPI:
     """Uvicorn factory: ``uvicorn blackbox_api.app:app_from_env --factory --host 127.0.0.1``."""
-    return create_app(make_engine(database_url()))
+    return create_app(make_engine(database_url()), artifact_root())

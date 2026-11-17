@@ -13,8 +13,8 @@ SNAPSHOT = Path(__file__).with_name("openapi_v1.json")
 
 
 @pytest.fixture
-def client(engine: Engine) -> TestClient:
-    return TestClient(create_app(engine))
+def client(engine: Engine, artifact_root: Path) -> TestClient:
+    return TestClient(create_app(engine, artifact_root))
 
 
 def _error(response: Any, status: int, code: str) -> dict[str, Any]:
@@ -45,13 +45,13 @@ def test_invalid_body_is_422_and_does_not_echo_input(client: TestClient) -> None
 
 
 def test_unexpected_error_hides_details(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, engine: Engine
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, engine: Engine, artifact_root: Path
 ) -> None:
     def boom(*_args: object, **_kwargs: object) -> None:
         raise RuntimeError("internal path /secret")
 
     monkeypatch.setattr(app_module, "run_case", boom)
-    quiet = TestClient(create_app(engine), raise_server_exceptions=False)
+    quiet = TestClient(create_app(engine, artifact_root), raise_server_exceptions=False)
     response = quiet.post("/v1/runs", json={"case_id": "case_0007"})
     _error(response, 500, "INTERNAL_ERROR")
     assert "secret" not in response.text and "Traceback" not in response.text

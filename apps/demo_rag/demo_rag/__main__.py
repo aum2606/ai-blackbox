@@ -5,7 +5,7 @@ Needs a migrated database (``alembic upgrade head``); the URL comes from DATABAS
 
 import argparse
 
-from evidence_store.engine import database_url, make_engine
+from evidence_store.engine import artifact_root, database_url, make_engine
 from trace_ingest.exporter import make_tracer_provider
 
 from demo_rag.fixtures import FixtureError
@@ -23,7 +23,12 @@ def main() -> None:
     tracer = make_tracer_provider(engine).get_tracer("demo_rag")
     try:
         result = run_case(
-            engine, tracer, args.case, args.fault, capture_content=args.capture_content
+            engine,
+            tracer,
+            artifact_root(),
+            args.case,
+            args.fault,
+            capture_content=args.capture_content,
         )
     except FixtureError as err:
         raise SystemExit(f"{err.code}: {err}") from err
