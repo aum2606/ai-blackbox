@@ -1,2 +1,3 @@
 # Fixture bytes are hashed; never rewrite line endings.
 experiments/** -text
+tests/contract/*.json -text
