@@ -2,14 +2,13 @@
 
 import hashlib
 import logging
-import os
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from demo_rag.fixtures import FixtureError, load_case
 from demo_rag.pipeline import run_case
-from evidence_store.engine import make_engine
+from evidence_store.engine import database_url, make_engine
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -31,7 +30,6 @@ from blackbox_api.schemas import (
 )
 
 _log = logging.getLogger(__name__)
-DEFAULT_URL = "sqlite:///./.local/blackbox.db"
 _ERRORS: dict[int | str, dict[str, Any]] = {404: {"model": ErrorOut}}
 
 
@@ -148,4 +146,4 @@ def create_app(engine: Engine) -> FastAPI:
 
 def app_from_env() -> FastAPI:
     """Uvicorn factory: ``uvicorn blackbox_api.app:app_from_env --factory --host 127.0.0.1``."""
-    return create_app(make_engine(os.environ.get("DATABASE_URL", DEFAULT_URL)))
+    return create_app(make_engine(database_url()))

@@ -4,15 +4,12 @@ Needs a migrated database (``alembic upgrade head``); the URL comes from DATABAS
 """
 
 import argparse
-import os
 
-from evidence_store.engine import make_engine
+from evidence_store.engine import database_url, make_engine
 from trace_ingest.exporter import make_tracer_provider
 
 from demo_rag.fixtures import FixtureError
 from demo_rag.pipeline import run_case
-
-DEFAULT_URL = "sqlite:///./.local/blackbox.db"
 
 
 def main() -> None:
@@ -22,7 +19,7 @@ def main() -> None:
     parser.add_argument("--capture-content", action="store_true", help="store the answer text")
     args = parser.parse_args()
 
-    engine = make_engine(os.environ.get("DATABASE_URL", DEFAULT_URL))
+    engine = make_engine(database_url())
     tracer = make_tracer_provider(engine).get_tracer("demo_rag")
     try:
         result = run_case(

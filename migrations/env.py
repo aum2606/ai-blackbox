@@ -1,9 +1,7 @@
-import os
-
 from alembic import context
-from evidence_store.engine import make_engine
+from evidence_store.engine import database_url, make_engine
 
-url = context.config.get_main_option("sqlalchemy.url") or os.environ["DATABASE_URL"]
+url = context.config.get_main_option("sqlalchemy.url") or database_url()
 
 with make_engine(url).connect() as connection:
     context.configure(connection=connection)

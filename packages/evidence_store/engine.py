@@ -1,10 +1,18 @@
 """SQLite engine factory. Every connection enforces foreign keys (ADD §5.3)."""
 
+import os
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
+
+DEFAULT_URL = "sqlite:///./.local/blackbox.db"
+
+
+def database_url() -> str:
+    """The single place DATABASE_URL is read (API, CLI and migrations)."""
+    return os.environ.get("DATABASE_URL", DEFAULT_URL)
 
 
 def make_engine(url: str) -> Engine:
