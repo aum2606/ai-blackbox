@@ -1,0 +1,20 @@
+{
+  "case_id": "case_0005",
+  "question": "What is the approved reimbursement cap for plan Zeta?",
+  "doc_key": "plan_zeta",
+  "expected_answer": "820 units",
+  "documents": [
+    {
+      "version": 1,
+      "path": "documents/plan_zeta/v1.txt",
+      "valid_from": "2025-01-01",
+      "valid_to": "2026-06-01"
+    },
+    {
+      "version": 2,
+      "path": "documents/plan_zeta/v2.txt",
+      "valid_from": "2026-06-01",
+      "valid_to": null
+    }
+  ]
+}

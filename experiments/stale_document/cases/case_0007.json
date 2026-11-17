@@ -1,0 +1,20 @@
+{
+  "case_id": "case_0007",
+  "question": "What is the approved reimbursement cap for plan Delta?",
+  "doc_key": "plan_delta",
+  "expected_answer": "800 units",
+  "documents": [
+    {
+      "version": 1,
+      "path": "documents/plan_delta/v1.txt",
+      "valid_from": "2025-01-01",
+      "valid_to": "2026-09-01"
+    },
+    {
+      "version": 2,
+      "path": "documents/plan_delta/v2.txt",
+      "valid_from": "2026-09-01",
+      "valid_to": null
+    }
+  ]
+}

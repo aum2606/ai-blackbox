@@ -1,0 +1,20 @@
+{
+  "case_id": "case_0010",
+  "question": "What is the approved reimbursement cap for plan Kappa?",
+  "doc_key": "plan_kappa",
+  "expected_answer": "960 units",
+  "documents": [
+    {
+      "version": 1,
+      "path": "documents/plan_kappa/v1.txt",
+      "valid_from": "2025-01-01",
+      "valid_to": "2026-09-15"
+    },
+    {
+      "version": 2,
+      "path": "documents/plan_kappa/v2.txt",
+      "valid_from": "2026-09-15",
+      "valid_to": null
+    }
+  ]
+}

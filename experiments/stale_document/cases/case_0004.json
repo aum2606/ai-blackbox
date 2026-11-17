@@ -1,0 +1,20 @@
+{
+  "case_id": "case_0004",
+  "question": "What is the approved reimbursement cap for plan Epsilon?",
+  "doc_key": "plan_epsilon",
+  "expected_answer": "350 units",
+  "documents": [
+    {
+      "version": 1,
+      "path": "documents/plan_epsilon/v1.txt",
+      "valid_from": "2025-01-01",
+      "valid_to": "2026-05-01"
+    },
+    {
+      "version": 2,
+      "path": "documents/plan_epsilon/v2.txt",
+      "valid_from": "2026-05-01",
+      "valid_to": null
+    }
+  ]
+}

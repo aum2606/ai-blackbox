@@ -1,0 +1,20 @@
+{
+  "case_id": "case_0001",
+  "question": "What is the approved reimbursement cap for plan Alpha?",
+  "doc_key": "plan_alpha",
+  "expected_answer": "600 units",
+  "documents": [
+    {
+      "version": 1,
+      "path": "documents/plan_alpha/v1.txt",
+      "valid_from": "2025-01-01",
+      "valid_to": "2026-02-01"
+    },
+    {
+      "version": 2,
+      "path": "documents/plan_alpha/v2.txt",
+      "valid_from": "2026-02-01",
+      "valid_to": null
+    }
+  ]
+}
