@@ -55,5 +55,6 @@ packages = [
     "apps/demo_rag/demo_rag",
     "packages/evidence_store",
     "packages/run_registry",
+    "packages/trace_schema",
     "packages/trace_ingest",
 ]

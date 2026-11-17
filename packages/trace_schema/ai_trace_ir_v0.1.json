@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "EvidenceClass": {
+      "enum": [
+        "observed",
+        "measured",
+        "inferred",
+        "intervened"
+      ],
+      "title": "EvidenceClass",
+      "type": "string"
+    },
+    "Location": {
+      "additionalProperties": true,
+      "properties": {
+        "forward_pass_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forward Pass Id"
+        },
+        "generation_step": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation Step"
+        },
+        "hook_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hook Name"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layer"
+        },
+        "token_position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Position"
+        }
+      },
+      "title": "Location",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": true,
+      "properties": {
+        "capture_config_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capture Config Hash"
+        },
+        "instrumentation_version": {
+          "title": "Instrumentation Version",
+          "type": "string"
+        },
+        "model_revision": {
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "tokenizer_revision": {
+          "title": "Tokenizer Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_revision",
+        "tokenizer_revision",
+        "instrumentation_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "minLength": 1,
+      "title": "Event Type",
+      "type": "string"
+    },
+    "evidence_class": {
+      "$ref": "#/$defs/EvidenceClass"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Location"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "model_invocation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Invocation Id"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "span_id": {
+      "pattern": "^[0-9a-f]{16}$",
+      "title": "Span Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "pattern": "^[0-9a-f]{32}$",
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "evidence_class",
+    "occurred_at",
+    "run_id",
+    "trace_id",
+    "span_id",
+    "payload",
+    "provenance"
+  ],
+  "title": "TraceEvent",
+  "type": "object"
+}
