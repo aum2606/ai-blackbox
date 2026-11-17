@@ -75,10 +75,15 @@ def main() -> int:
     started = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=REVISION)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID, revision=REVISION, use_safetensors=True, trust_remote_code=False
+        MODEL_ID,
+        revision=REVISION,
+        dtype=torch.float32,  # the checkpoint is fp16; transformers would keep that by default
+        use_safetensors=True,
+        trust_remote_code=False,
     ).eval()
     cold_start = time.perf_counter() - started
     layers = model.gpt_neox.layers
+    record("model dtype is float32", model.dtype == torch.float32, str(model.dtype))
     ids = tokenizer(PROMPT, return_tensors="pt")["input_ids"]
     n_tokens = ids.shape[1]
 

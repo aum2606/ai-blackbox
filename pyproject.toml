@@ -61,6 +61,7 @@ packages = [
     "apps/api/blackbox_api",
     "apps/demo_rag/demo_rag",
     "packages/evidence_store",
+    "packages/instrumentation",
     "packages/run_registry",
     "packages/trace_schema",
     "packages/trace_ingest",
