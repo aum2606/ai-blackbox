@@ -70,6 +70,8 @@ uv run pytest                 # default suite: no torch needed, no model downloa
 uv run pytest -m neural       # needs the neural group and the cached model (about a minute)
 ```
 
+`mypy` also needs the neural group installed, because it type-checks the torch-based adapter. The full mypy command is in the [Phase 1 runbook](phase1_demo.md); from Phase 3 on, add `packages workers/experiment_worker/experiment_worker` to it and run it after `uv sync --group neural`.
+
 ## Limitations
 
 - pythia-70m does not answer the cap question reliably, and its wrong answers are recorded as observed. Phase 3 proves capture, not interpretation: activation sizes are measurements, not explanations of reasoning. Nothing here supports a causal claim (that needs Phase 5 controls).
