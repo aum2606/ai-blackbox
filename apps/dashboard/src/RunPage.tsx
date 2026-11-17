@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ApiRequestError, fetchArtifact, fetchRun } from "./api";
+import { NeuralExplorer } from "./NeuralExplorer";
 import type { ArtifactOut, InvocationOut, RetrievalOut, RunOut, SpanOut } from "./types";
 
 type State =
@@ -121,7 +122,8 @@ function Invocations({ invocations }: { invocations: InvocationOut[] }) {
     <Section title="Model invocation">
       {invocations.length === 0 && <p>No model invocation recorded for this run.</p>}
       {invocations.map((inv) => (
-        <dl key={inv.id}>
+        <div key={inv.id}>
+        <dl>
           <Field label="Invocation ID" value={<code>{inv.id}</code>} />
           <Field label="Model" value={`${inv.model_id} (tokenizer: ${inv.tokenizer_revision})`} />
           <Field label="Model revision" value={<code>{inv.model_revision}</code>} />
@@ -134,6 +136,13 @@ function Invocations({ invocations }: { invocations: InvocationOut[] }) {
             value={inv.neural_access === "unavailable" ? "unavailable: no activations were captured" : "available"}
           />
         </dl>
+        {inv.neural_access === "available" && (
+          <>
+            <h3>Neural explorer</h3>
+            <NeuralExplorer invocation={inv} />
+          </>
+        )}
+        </div>
       ))}
     </Section>
   );

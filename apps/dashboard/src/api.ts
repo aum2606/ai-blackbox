@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ArtifactOut, RunOut } from "./types";
+import type { ApiErrorBody, ArtifactOut, CaptureJobOut, MeasurementOut, RunOut } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -29,3 +29,9 @@ export const fetchRun = (runId: string, signal: AbortSignal) =>
 
 export const fetchArtifact = (artifactId: string, signal: AbortSignal) =>
   getJson<ArtifactOut>(`/v1/artifacts/${encodeURIComponent(artifactId)}`, signal);
+
+export const fetchMeasurements = (invocationId: string, signal: AbortSignal) =>
+  getJson<MeasurementOut[]>(`/v1/invocations/${encodeURIComponent(invocationId)}/measurements`, signal);
+
+export const fetchCapture = (jobId: string, signal: AbortSignal) =>
+  getJson<CaptureJobOut>(`/v1/captures/${encodeURIComponent(jobId)}`, signal);

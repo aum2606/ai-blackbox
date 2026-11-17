@@ -44,6 +44,32 @@ export interface ArtifactOut {
   integrity_error: string | null;
 }
 
+export interface MeasurementOut {
+  id: string;
+  capture_job_id: string;
+  kind: "activation" | "logits";
+  hook_name: string;
+  layer: number | null;
+  token_position: number;
+  artifact_id: string; // verify with GET /v1/artifacts/{id}; bytes are not served
+  dtype: string;
+  shape: number[];
+  summary: Record<string, number>;
+  evidence_class: "measured";
+}
+
+export interface CaptureJobOut {
+  id: string;
+  invocation_id: string;
+  status: "queued" | "running" | "completed" | "failed" | "blocked_resource";
+  error_type: string | null;
+  plan: { hooks: string[]; positions: number[]; include_logits: boolean };
+  replay: Record<string, unknown> | null;
+  created_at: string;
+  started_at: string | null;
+  ended_at: string | null;
+}
+
 export interface SpanOut {
   span_id: string;
   trace_id: string;
