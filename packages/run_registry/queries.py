@@ -15,6 +15,7 @@ class DocumentRecord:
     sha256: str
     valid_from: str
     valid_to: str | None
+    artifact_id: str | None
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class InvocationRecord:
     output_sha256: str | None
     sampling_config: dict[str, Any]
     neural_access: str
+    prompt_artifact_id: str | None
     created_at: str
 
 
@@ -57,10 +59,42 @@ class RunRecord:
     retrievals: tuple[RetrievalRecord, ...]
 
 
+@dataclass(frozen=True)
+class ArtifactRecord:
+    id: str
+    sha256: str
+    mime_type: str
+    nbytes: int
+    category: str
+    parents: tuple[str, ...]
+
+
+def get_artifact(conn: Connection, artifact_id: str) -> ArtifactRecord | None:
+    row = conn.execute(
+        text("SELECT id, sha256, mime_type, nbytes, category FROM artifacts WHERE id = :id"),
+        {"id": artifact_id},
+    ).first()
+    if row is None:
+        return None
+    parents = conn.execute(
+        text("SELECT parent_id FROM artifact_lineage WHERE child_id = :id ORDER BY parent_id"),
+        {"id": artifact_id},
+    ).scalars()
+    return ArtifactRecord(
+        id=row.id,
+        sha256=row.sha256,
+        mime_type=row.mime_type,
+        nbytes=row.nbytes,
+        category=row.category,
+        parents=tuple(parents),
+    )
+
+
 _INVOCATION_SQL = (
     "SELECT i.id, i.run_id, r.trace_id, i.span_id, i.model_id, i.model_revision,"
     " i.tokenizer_revision, i.prompt_sha256, i.output_sha256, i.sampling_config_json,"
-    " i.neural_access, i.created_at FROM model_invocations i JOIN runs r ON r.id = i.run_id"
+    " i.neural_access, i.prompt_artifact_id, i.created_at FROM model_invocations i"
+    " JOIN runs r ON r.id = i.run_id"
 )
 
 
@@ -77,6 +111,7 @@ def _invocation(row: Any) -> InvocationRecord:
         output_sha256=row.output_sha256,
         sampling_config=json.loads(row.sampling_config_json),
         neural_access=row.neural_access,
+        prompt_artifact_id=row.prompt_artifact_id,
         created_at=row.created_at,
     )
 
@@ -96,7 +131,8 @@ def get_run(conn: Connection, run_id: str) -> RunRecord | None:
     retrievals = conn.execute(
         text(
             "SELECT rr.rank, rr.score, d.id, d.doc_key, d.version, d.sha256, d.valid_from,"
-            " d.valid_to FROM retrieval_results rr JOIN documents d ON d.id = rr.document_id"
+            " d.valid_to, d.artifact_id FROM retrieval_results rr"
+            " JOIN documents d ON d.id = rr.document_id"
             " WHERE rr.run_id = :id ORDER BY rr.rank"
         ),
         {"id": run_id},
@@ -125,6 +161,7 @@ def get_run(conn: Connection, run_id: str) -> RunRecord | None:
                     sha256=r.sha256,
                     valid_from=r.valid_from,
                     valid_to=r.valid_to,
+                    artifact_id=r.artifact_id,
                 ),
             )
             for r in retrievals

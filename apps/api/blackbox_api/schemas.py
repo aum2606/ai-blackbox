@@ -32,6 +32,7 @@ class DocumentOut(_FromRecord):
     sha256: str
     valid_from: str
     valid_to: str | None  # null marks the current version
+    artifact_id: str | None
 
 
 class RetrievalOut(_FromRecord):
@@ -52,7 +53,19 @@ class InvocationOut(_FromRecord):
     output_sha256: str | None
     sampling_config: dict[str, Any]
     neural_access: Literal["available", "unavailable"]
+    prompt_artifact_id: str | None  # null unless the run opted in to content capture
     created_at: str
+
+
+class ArtifactOut(BaseModel):
+    id: str
+    sha256: str
+    mime_type: str
+    nbytes: int
+    category: str
+    parents: list[str]
+    verified: bool  # true only if the stored bytes were re-hashed on this request and match
+    integrity_error: str | None  # error code when verified is false
 
 
 class SpanOut(_FromRecord):

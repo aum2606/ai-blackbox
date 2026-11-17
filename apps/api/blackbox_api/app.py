@@ -9,6 +9,7 @@ from typing import Any
 
 from demo_rag.fixtures import FixtureError, load_case
 from demo_rag.pipeline import run_case
+from evidence_store.artifacts import ArtifactError, get_verified
 from evidence_store.engine import artifact_root, database_url, make_engine
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +21,7 @@ from trace_ingest.queries import list_spans
 
 from blackbox_api.schemas import (
     AnswerOut,
+    ArtifactOut,
     ErrorOut,
     HealthOut,
     InvocationOut,
@@ -142,6 +144,29 @@ def create_app(engine: Engine, store_root: Path) -> FastAPI:
         if invocation is None:
             raise ApiError(404, "INVOCATION_NOT_FOUND", f"unknown invocation {invocation_id!r}")
         return InvocationOut.model_validate(invocation)
+
+    @app.get("/v1/artifacts/{artifact_id}", response_model=ArtifactOut, responses=_ERRORS)
+    def get_artifact(artifact_id: str) -> ArtifactOut:
+        """Metadata and a fresh checksum check. Raw bytes are never returned."""
+        with engine.connect() as conn:
+            artifact = registry_queries.get_artifact(conn, artifact_id)
+            if artifact is None:
+                raise ApiError(404, "ARTIFACT_NOT_FOUND", f"unknown artifact {artifact_id!r}")
+            try:
+                get_verified(conn, store_root, artifact_id)
+                integrity_error = None
+            except ArtifactError as err:
+                integrity_error = err.code  # reported, not hidden
+        return ArtifactOut(
+            id=artifact.id,
+            sha256=artifact.sha256,
+            mime_type=artifact.mime_type,
+            nbytes=artifact.nbytes,
+            category=artifact.category,
+            parents=list(artifact.parents),
+            verified=integrity_error is None,
+            integrity_error=integrity_error,
+        )
 
     return app
 

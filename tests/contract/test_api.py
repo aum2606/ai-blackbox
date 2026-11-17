@@ -75,3 +75,22 @@ def test_openapi_matches_checked_in_snapshot(client: TestClient) -> None:
     if os.environ.get("UPDATE_SNAPSHOT"):
         SNAPSHOT.write_text(current, encoding="utf-8", newline="\n")
     assert current == SNAPSHOT.read_text(encoding="utf-8")
+
+
+def test_unknown_artifact_is_a_structured_404(client: TestClient) -> None:
+    _error(client.get("/v1/artifacts/art_missing"), 404, "ARTIFACT_NOT_FOUND")
+
+
+def test_tampered_artifact_is_reported_not_hidden(client: TestClient, artifact_root: Path) -> None:
+    run_id = client.post("/v1/runs", json={"case_id": "case_0007"}).json()["run_id"]
+    run = client.get(f"/v1/runs/{run_id}").json()
+    artifact_id = run["retrievals"][0]["document"]["artifact_id"]
+    ok = client.get(f"/v1/artifacts/{artifact_id}").json()
+    assert ok["verified"] is True and ok["integrity_error"] is None
+    assert "text" not in ok and "content" not in ok  # metadata only, never raw bytes
+
+    next(p for p in artifact_root.rglob("*") if p.is_file() and p.stem == ok["sha256"]).write_bytes(
+        b"tampered"
+    )
+    bad = client.get(f"/v1/artifacts/{artifact_id}").json()
+    assert bad["verified"] is False and bad["integrity_error"] == "ARTIFACT_INTEGRITY_ERROR"

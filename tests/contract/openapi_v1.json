@@ -38,8 +38,77 @@
         "title": "AnswerOut",
         "type": "object"
       },
+      "ArtifactOut": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "integrity_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrity Error"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "nbytes": {
+            "title": "Nbytes",
+            "type": "integer"
+          },
+          "parents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parents",
+            "type": "array"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sha256",
+          "mime_type",
+          "nbytes",
+          "category",
+          "parents",
+          "verified",
+          "integrity_error"
+        ],
+        "title": "ArtifactOut",
+        "type": "object"
+      },
       "DocumentOut": {
         "properties": {
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          },
           "doc_key": {
             "title": "Doc Key",
             "type": "string"
@@ -78,7 +147,8 @@
           "version",
           "sha256",
           "valid_from",
-          "valid_to"
+          "valid_to",
+          "artifact_id"
         ],
         "title": "DocumentOut",
         "type": "object"
@@ -182,6 +252,17 @@
             ],
             "title": "Output Sha256"
           },
+          "prompt_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Artifact Id"
+          },
           "prompt_sha256": {
             "title": "Prompt Sha256",
             "type": "string"
@@ -234,6 +315,7 @@
           "output_sha256",
           "sampling_config",
           "neural_access",
+          "prompt_artifact_id",
           "created_at"
         ],
         "title": "InvocationOut",
@@ -553,6 +635,56 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/artifacts/{artifact_id}": {
+      "get": {
+        "description": "Metadata and a fresh checksum check. Raw bytes are never returned.",
+        "operationId": "get_artifact_v1_artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Artifact"
+      }
+    },
     "/v1/health": {
       "get": {
         "operationId": "health_v1_health_get",
