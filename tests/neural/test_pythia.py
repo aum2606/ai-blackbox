@@ -34,22 +34,33 @@ def test_golden_logits_at_the_last_position(adapter: PythiaAdapter) -> None:
 
 def test_capture_is_read_only_and_has_the_expected_shapes(adapter: PythiaAdapter) -> None:
     ids = GOLDEN["input_ids"]
-    plan = build_plan(
-        ["blocks.3.hook_resid_post", "blocks.5.hook_resid_post"],
-        [0, -1],
-        include_logits=True,
-        n_tokens=len(ids),
-    )
-    result = adapter.capture(ids, plan)
-    assert result.max_logit_diff <= READ_ONLY_TOLERANCE
-    assert set(result.activations) == {
-        (hook, position)
-        for hook in ("blocks.3.hook_resid_post", "blocks.5.hook_resid_post")
-        for position in (0, len(ids) - 1)
+    hooks = ("blocks.3.hook_resid_post", "blocks.5.hook_resid_post")
+    plan = build_plan(list(hooks), [0, -1], include_logits=True, n_tokens=len(ids))
+    data = adapter.capture(ids, plan)
+    assert data.max_logit_diff <= READ_ONLY_TOLERANCE
+    activations = [m for m in data.measurements if m.kind == "activation"]
+    logits = [m for m in data.measurements if m.kind == "logits"]
+    assert {(m.hook_name, m.token_position) for m in activations} == {
+        (h, p) for h in hooks for p in (0, len(ids) - 1)
     }
-    assert all(t.shape == (D_MODEL,) for t in result.activations.values())
-    assert set(result.logits) == {0, len(ids) - 1}
-    assert len(result.argmax_ids) == len(ids)
+    assert all(m.shape == [D_MODEL] and m.dtype == "float32" for m in activations)
+    assert {m.token_position for m in logits} == {0, len(ids) - 1}
+    assert all(m.shape == [VOCAB_SIZE] for m in logits)
+    assert len(data.argmax_ids) == len(ids)
+    assert all(
+        m.payload and set(m.summary) == {"l2_norm", "mean", "max_abs"} for m in data.measurements
+    )
+
+
+def test_serialized_tensor_round_trips_through_safetensors(adapter: PythiaAdapter) -> None:
+    from safetensors.torch import load
+
+    ids = GOLDEN["input_ids"]
+    plan = build_plan(["blocks.3.hook_resid_post"], [-1], include_logits=False, n_tokens=len(ids))
+    (measurement,) = adapter.capture(ids, plan).measurements
+    tensor = load(measurement.payload)["data"]
+    assert tensor.shape == (D_MODEL,)
+    assert abs(float(tensor.norm()) - measurement.summary["l2_norm"]) < 1e-4
 
 
 def test_greedy_generation_is_deterministic(adapter: PythiaAdapter) -> None:

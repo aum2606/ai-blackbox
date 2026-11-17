@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 MODEL_ID = "EleutherAI/pythia-70m-deduped"
 MODEL_REVISION = "e93a9faa9c77e5d09219f6c868bfc7a1bd65593c"
@@ -52,6 +53,11 @@ class CapturePlan:
             },
             sort_keys=True,
         )
+
+    @classmethod
+    def from_json(cls, value: str) -> "CapturePlan":
+        raw = json.loads(value)
+        return cls(tuple(raw["hooks"]), tuple(raw["positions"]), bool(raw["include_logits"]))
 
     @property
     def sha256(self) -> str:
@@ -102,3 +108,29 @@ def build_plan(
             "CAPTURE_TOO_LARGE", f"estimated {estimate_bytes(plan)} bytes exceeds {max_bytes}"
         )
     return plan
+
+
+@dataclass(frozen=True)
+class CapturedMeasurement:
+    """One serialized tensor ready for the artifact store (safetensors bytes, no torch needed)."""
+
+    kind: str  # "activation" or "logits"
+    hook_name: str
+    layer: int | None
+    token_position: int
+    dtype: str
+    shape: list[int]
+    payload: bytes
+    summary: dict[str, float]  # L2 norm, mean, max-abs: measurements, not interpretations
+
+
+@dataclass(frozen=True)
+class CaptureData:
+    measurements: list[CapturedMeasurement]
+    argmax_ids: list[int]  # greedy next-token choice at every position of the replayed sequence
+    max_logit_diff: float  # hooked vs unhooked logits over all positions and the vocabulary
+    runtime: dict[str, Any]  # device, dtype, library versions: part of the replay record
+
+
+class CaptureAdapter(Protocol):
+    def capture(self, token_ids: list[int], plan: CapturePlan) -> CaptureData: ...

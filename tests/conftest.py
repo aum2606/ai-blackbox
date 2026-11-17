@@ -1,9 +1,11 @@
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
 from alembic.config import Config
+from demo_rag.backends import Generation
 from evidence_store.engine import make_engine
 from sqlalchemy import Engine
 
@@ -26,3 +28,21 @@ def engine(tmp_path: Path) -> Iterator[Engine]:
     engine = make_engine(url)
     yield engine
     engine.dispose()
+
+
+class StubBackend:
+    """Stands in for a real model: fixed answer and token IDs, so tests need no torch."""
+
+    model_id = "stub-real"
+    model_revision = "rev1"
+    tokenizer_revision = "tok1"
+    neural_access = "available"
+    sampling_config: dict[str, Any] = {"do_sample": False}  # noqa: RUF012 - read-only
+
+    def generate(self, prompt: str, document_text: str) -> Generation:
+        return Generation("some answer", [1, 2, 3], [4, 5])
+
+
+@pytest.fixture
+def stub_backend() -> StubBackend:
+    return StubBackend()

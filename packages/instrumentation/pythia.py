@@ -4,16 +4,19 @@ Needs the ``neural`` dependency group. Replay is teacher-forced on given token I
 ``use_cache=False`` so hooks see every position (ADD §4.2, §7.2).
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 import torch
+import transformers
+from safetensors.torch import save
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from instrumentation.plan import (
     MODEL_ID,
     MODEL_REVISION,
     PRECISION,
+    CaptureData,
+    CapturedMeasurement,
     CaptureError,
     CapturePlan,
     ModelIdentity,
@@ -21,14 +24,6 @@ from instrumentation.plan import (
 )
 
 READ_ONLY_TOLERANCE = 1e-6  # max |hooked - unhooked| logits; recorded with every capture
-
-
-@dataclass(frozen=True)
-class CaptureResult:
-    activations: dict[tuple[str, int], torch.Tensor]  # (hook, position) -> [d_model]
-    logits: dict[int, torch.Tensor]  # position -> [vocab], only if the plan asked for them
-    argmax_ids: list[int]  # greedy next-token choice at every position
-    max_logit_diff: float  # hooked vs unhooked, over all positions and vocabulary
 
 
 def _hidden(output: Any) -> torch.Tensor:
@@ -76,7 +71,7 @@ class PythiaAdapter:
     def logits(self, token_ids: list[int]) -> torch.Tensor:
         return self._forward(token_ids)
 
-    def capture(self, token_ids: list[int], plan: CapturePlan) -> CaptureResult:
+    def capture(self, token_ids: list[int], plan: CapturePlan) -> CaptureData:
         baseline = self._forward(token_ids)
         positions = list(plan.positions)
         captured: dict[int, torch.Tensor] = {}
@@ -97,13 +92,48 @@ class PythiaAdapter:
             raise CaptureError(
                 "NUMERICAL_MISMATCH", f"hooks changed logits by {max_diff:.3g} (> tolerance)"
             )
-        return CaptureResult(
-            activations={
-                (hook, position): captured[hook_layer(hook)][i]
-                for hook in plan.hooks
-                for i, position in enumerate(positions)
-            },
-            logits={p: baseline[p].clone() for p in positions} if plan.include_logits else {},
+        measurements = [
+            _measurement(
+                "activation", hook, hook_layer(hook), position, captured[hook_layer(hook)][i]
+            )
+            for hook in plan.hooks
+            for i, position in enumerate(positions)
+        ]
+        if plan.include_logits:
+            measurements += [
+                _measurement("logits", "unembed.logits", None, position, baseline[position])
+                for position in positions
+            ]
+        return CaptureData(
+            measurements=measurements,
             argmax_ids=[int(t) for t in baseline.argmax(-1)],
             max_logit_diff=max_diff,
+            runtime={
+                "mode": "teacher_forced",
+                "device": "cpu",
+                "dtype": PRECISION,
+                "use_cache": False,
+                "torch": torch.__version__,
+                "transformers": transformers.__version__,
+            },
         )
+
+
+def _measurement(
+    kind: str, hook_name: str, layer: int | None, position: int, tensor: torch.Tensor
+) -> CapturedMeasurement:
+    flat = tensor.detach().contiguous()
+    return CapturedMeasurement(
+        kind=kind,
+        hook_name=hook_name,
+        layer=layer,
+        token_position=position,
+        dtype=str(flat.dtype).removeprefix("torch."),
+        shape=list(flat.shape),
+        payload=save({"data": flat}),
+        summary={
+            "l2_norm": float(flat.norm().item()),
+            "mean": float(flat.mean().item()),
+            "max_abs": float(flat.abs().max().item()),
+        },
+    )

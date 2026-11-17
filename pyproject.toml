@@ -54,12 +54,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-dev-mode-dirs = ["apps/api", "apps/demo_rag", "packages"]
+dev-mode-dirs = ["apps/api", "apps/demo_rag", "packages", "workers/experiment_worker"]
 
 [tool.hatch.build.targets.wheel]
 packages = [
     "apps/api/blackbox_api",
     "apps/demo_rag/demo_rag",
+    "workers/experiment_worker/experiment_worker",
     "packages/evidence_store",
     "packages/instrumentation",
     "packages/run_registry",

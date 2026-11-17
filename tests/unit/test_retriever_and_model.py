@@ -1,5 +1,5 @@
+import demo_rag.model as model
 import pytest
-from demo_rag import model
 from demo_rag.fixtures import load_case
 from demo_rag.retriever import retrieve
 
