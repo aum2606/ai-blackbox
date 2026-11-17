@@ -68,7 +68,7 @@ Stop the API first, then copy the `.local/` folder (the database and its `-wal`/
 
 ## Privacy defaults
 
-Prompt, answer and document text are not stored unless a run is created with content capture on (`--capture-content`, or `"capture_content": true` in `POST /v1/runs`). Without it, only hashes, IDs and span timings are kept. The fixtures are synthetic.
+Prompt and answer text are not stored unless a run is created with content capture on (`--capture-content`, or `"capture_content": true` in `POST /v1/runs`). Without it, only hashes, IDs and span timings are kept. Fixture documents are the exception: they are synthetic, committed in the repo, and always stored as artifacts (Phase 2).
 
 ## Limitations
 
