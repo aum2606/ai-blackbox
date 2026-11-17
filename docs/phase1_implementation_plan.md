@@ -127,7 +127,7 @@ SQLiteSpanExporter (SimpleSpanProcessor) writes spans synchronously at span end.
 - The pipeline is a plain function called by both the API route and a CLI (`python -m demo_rag run --case case_0007 --fault stale_version`). The route only validates input and maps the response (rules §2).
 - Running in the request handler is acceptable here because the fixture model costs microseconds. Once a real model arrives (Phase 3), this moves to the worker, as ADD §6.4 already requires.
 - `SimpleSpanProcessor` (synchronous) is used instead of the batch processor so that the trace is complete when `POST /v1/runs` returns. This is needed for "no intentionally sampled loss" (ADD §11.1).
-- On failure, spans record the exception status, the run is marked `failed` with a structured `error_type` (`FIXTURE_HASH_MISMATCH`, `CASE_NOT_FOUND`, `ANSWER_NOT_EXTRACTABLE`), and the API returns that error, not a stack trace.
+- Fixture errors (`CASE_NOT_FOUND`, `FIXTURE_HASH_MISMATCH`, `FIXTURE_PATH_INVALID`) are raised before any run is created, and the API maps them to structured errors. A run that starts and then fails is marked `failed` with `error_type` (`ANSWER_NOT_EXTRACTABLE`, or `INTERNAL_ERROR` for an unexpected exception), its spans carry `ERROR` status, and the API never returns a stack trace.
 
 ## 7. Privacy rules applied in Phase 1
 

@@ -1,16 +1,11 @@
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from evidence_store.engine import make_engine
 from run_registry import registry
 from run_registry.registry import RegistryError
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Engine, text
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 DOC: dict[str, Any] = {
     "corpus_id": "stale_document_v1",
     "doc_key": "plan_delta",
@@ -23,16 +18,9 @@ DOC: dict[str, Any] = {
 
 
 @pytest.fixture
-def conn(tmp_path: Path) -> Iterator[Connection]:
-    url = f"sqlite:///{tmp_path / 'blackbox.db'}"
-    config = Config(str(REPO_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(REPO_ROOT / "migrations"))
-    config.set_main_option("sqlalchemy.url", url)
-    command.upgrade(config, "head")
-    engine = make_engine(url)
+def conn(engine: Engine) -> Iterator[Connection]:
     with engine.begin() as connection:
         yield connection
-    engine.dispose()
 
 
 def _new_run(conn: Connection, capture: bool = False) -> str:

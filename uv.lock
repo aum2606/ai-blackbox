@@ -5,7 +5,7 @@ requires-python = "==3.12.*"
 [[package]]
 name = "ai-blackbox-lab"
 version = "0.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "openinference-semantic-conventions" },
