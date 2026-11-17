@@ -5,6 +5,7 @@ connection as spans end; one long write transaction would lock it out.
 """
 
 import hashlib
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,6 +26,7 @@ from trace_ingest.exporter import INVOCATION_ID_ATTR, RUN_ID_ATTR
 from trace_schema.ir import SCHEMA_VERSION, EvidenceClass, Provenance, TraceEvent
 
 from demo_rag import model
+from demo_rag.backends import FIXTURE_BACKEND, Backend, Generation
 from demo_rag.fixtures import DEFAULT_ROOT, load_case
 from demo_rag.retriever import RetrievalFault, retrieve
 
@@ -49,6 +51,7 @@ def _sha256(value: str) -> str:
 
 def _emit(
     engine: Engine,
+    backend: Backend,
     *,
     event_type: str,
     run_id: str,
@@ -70,13 +73,47 @@ def _emit(
         model_invocation_id=invocation_id,
         payload=payload,
         provenance=Provenance(
-            model_revision=model.MODEL_REVISION,
-            tokenizer_revision=model.TOKENIZER_REVISION,
+            model_revision=backend.model_revision,
+            tokenizer_revision=backend.tokenizer_revision,
             instrumentation_version=INSTRUMENTATION_VERSION,
         ),
     )
     with engine.begin() as conn:
         record_event(conn, event)
+
+
+def _store_token_sequences(
+    engine: Engine,
+    artifact_root: Path,
+    backend: Backend,
+    generation: Generation,
+    invocation_id: str,
+    prompt_artifact_id: str,
+) -> None:
+    """Token IDs reconstruct the prompt, so they are stored only on content opt-in."""
+    for role, ids in (
+        ("prompt", generation.prompt_token_ids),
+        ("output", generation.output_token_ids),
+    ):
+        if ids is None:
+            continue
+        with engine.begin() as conn:
+            artifact_id = put_bytes(
+                conn,
+                artifact_root,
+                json.dumps({"token_ids": ids}).encode("utf-8"),
+                mime_type="application/json",
+                category="derived",
+                parents=[prompt_artifact_id],
+            )
+            registry.record_token_sequence(
+                conn,
+                invocation_id=invocation_id,
+                role=role,
+                tokenizer_revision=backend.tokenizer_revision,
+                n_tokens=len(ids),
+                artifact_id=artifact_id,
+            )
 
 
 def run_case(
@@ -88,6 +125,7 @@ def run_case(
     *,
     capture_content: bool = False,
     fixture_root: Path = DEFAULT_ROOT,
+    backend: Backend = FIXTURE_BACKEND,
 ) -> RunResult:
     # Fixture errors (unknown case, tampered files) propagate before any run is created.
     case = load_case(case_id, fixture_root)
@@ -162,6 +200,7 @@ def run_case(
 
                 _emit(
                     engine,
+                    backend,
                     event_type="retrieval.document.selected",
                     run_id=run_id,
                     trace_id=trace_id,
@@ -196,16 +235,17 @@ def run_case(
                     invocation_id = registry.create_invocation(
                         conn,
                         run_id=run_id,
-                        model_id=model.MODEL_ID,
-                        model_revision=model.MODEL_REVISION,
-                        tokenizer_revision=model.TOKENIZER_REVISION,
+                        model_id=backend.model_id,
+                        model_revision=backend.model_revision,
+                        tokenizer_revision=backend.tokenizer_revision,
                         prompt_sha256=_sha256(prompt),
-                        sampling_config={"deterministic": True},
-                        neural_access=model.NEURAL_ACCESS,
+                        sampling_config=backend.sampling_config,
+                        neural_access=backend.neural_access,
                         prompt_artifact_id=prompt_artifact_id,
                     )
                 llm_span_id = ""
                 output_sha256 = None
+                generation = Generation(answer="")
                 try:
                     with tracer.start_as_current_span(
                         "llm.generate",
@@ -213,12 +253,13 @@ def run_case(
                             RUN_ID_ATTR: run_id,
                             INVOCATION_ID_ATTR: invocation_id,
                             SPAN_KIND: OpenInferenceSpanKindValues.LLM.value,
-                            SpanAttributes.LLM_MODEL_NAME: model.MODEL_ID,
+                            SpanAttributes.LLM_MODEL_NAME: backend.model_id,
                             "blackbox.prompt_sha256": _sha256(prompt),
                         },
                     ) as span:
                         llm_span_id = f"{span.get_span_context().span_id:016x}"
-                        answer = model.generate(document.text)
+                        generation = backend.generate(prompt, document.text)
+                        answer = generation.answer
                         output_sha256 = _sha256(answer)
                         span.set_attribute("blackbox.output_sha256", output_sha256)
                         if capture_content:
@@ -231,6 +272,7 @@ def run_case(
                         )
                     _emit(
                         engine,
+                        backend,
                         event_type="model.invocation.completed",
                         run_id=run_id,
                         trace_id=trace_id,
@@ -240,8 +282,17 @@ def run_case(
                             "prompt_sha256": _sha256(prompt),
                             "output_sha256": output_sha256,
                             "prompt_artifact_id": prompt_artifact_id,
-                            "neural_access": model.NEURAL_ACCESS,
+                            "neural_access": backend.neural_access,
                         },
+                    )
+                if capture_content and prompt_artifact_id:
+                    _store_token_sequences(
+                        engine,
+                        artifact_root,
+                        backend,
+                        generation,
+                        invocation_id,
+                        prompt_artifact_id,
                     )
                 with engine.begin() as conn:
                     registry.record_retrieval(

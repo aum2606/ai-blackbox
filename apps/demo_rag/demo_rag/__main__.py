@@ -8,6 +8,7 @@ import argparse
 from evidence_store.engine import artifact_root, database_url, make_engine
 from trace_ingest.exporter import make_tracer_provider
 
+from demo_rag.backends import FIXTURE_BACKEND, Backend
 from demo_rag.fixtures import FixtureError
 from demo_rag.pipeline import run_case
 
@@ -17,8 +18,21 @@ def main() -> None:
     parser.add_argument("--case", required=True)
     parser.add_argument("--fault", choices=["none", "stale_version"], default="none")
     parser.add_argument("--capture-content", action="store_true", help="store the answer text")
+    parser.add_argument(
+        "--model",
+        choices=["fixture", "pythia-70m-deduped"],
+        default="fixture",
+        help="pythia needs `uv sync --group neural`; its token IDs are stored only with"
+        " --capture-content",
+    )
     args = parser.parse_args()
 
+    if args.model == "fixture":
+        backend: Backend = FIXTURE_BACKEND
+    else:
+        from demo_rag.pythia_backend import PythiaBackend  # imports torch
+
+        backend = PythiaBackend()
     engine = make_engine(database_url())
     tracer = make_tracer_provider(engine).get_tracer("demo_rag")
     try:
@@ -29,6 +43,7 @@ def main() -> None:
             args.case,
             args.fault,
             capture_content=args.capture_content,
+            backend=backend,
         )
     except FixtureError as err:
         raise SystemExit(f"{err.code}: {err}") from err

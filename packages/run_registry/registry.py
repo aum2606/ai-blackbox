@@ -189,6 +189,34 @@ def record_retrieval(
     return retrieval_id
 
 
+def record_token_sequence(
+    conn: Connection,
+    *,
+    invocation_id: str,
+    role: str,
+    tokenizer_revision: str,
+    n_tokens: int,
+    artifact_id: str,
+) -> str:
+    sequence_id = _new_id("tok")
+    conn.execute(
+        text(
+            "INSERT INTO token_sequences (id, invocation_id, role, tokenizer_revision, n_tokens,"
+            " artifact_id, created_at) VALUES (:id, :inv, :role, :tok, :n, :art, :now)"
+        ),
+        {
+            "id": sequence_id,
+            "inv": invocation_id,
+            "role": role,
+            "tok": tokenizer_revision,
+            "n": n_tokens,
+            "art": artifact_id,
+            "now": _now(),
+        },
+    )
+    return sequence_id
+
+
 def complete_run(
     conn: Connection,
     run_id: str,
