@@ -22,6 +22,11 @@ dev = [
     "pytest>=8",
     "ruff>=0.5",
 ]
+neural = [
+    "safetensors>=0.8.0",
+    "torch>=2.15.0",
+    "transformers>=5.23.0",
+]
 
 [tool.ruff]
 line-length = 100
@@ -40,6 +45,8 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m \"not neural\""
+markers = ["neural: needs the neural dependency group and a cached model (uv sync --group neural; pytest -m neural)"]
 
 # Makes the in-repo packages importable by the CLI and API without PYTHONPATH tweaks.
 [build-system]
