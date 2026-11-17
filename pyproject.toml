@@ -5,7 +5,10 @@ description = "Research-grade observability, interpretability and causal debuggi
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 # Runtime dependencies are added by the step that first uses them.
-dependencies = []
+dependencies = [
+    "alembic>=1.20.1",
+    "sqlalchemy>=2.1.9",
+]
 
 [dependency-groups]
 dev = ["mypy>=1.10", "pytest>=8", "ruff>=0.5"]
