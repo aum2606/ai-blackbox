@@ -7,6 +7,9 @@ requires-python = ">=3.12,<3.13"
 # Runtime dependencies are added by the step that first uses them.
 dependencies = [
     "alembic>=1.20.1",
+    "openinference-semantic-conventions>=0.1.46",
+    "opentelemetry-api>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
     "sqlalchemy>=2.1.9",
 ]
 
