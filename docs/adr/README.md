@@ -11,3 +11,4 @@ Decisions come from ADD v1.1 §16 (ADR-001..008) plus later additions. A deviati
 - [ADR-007 Synthetic benchmarks, capture opt-in](adr-007.md)
 - [ADR-008 Zero paid services](adr-008.md)
 - [ADR-009 Deterministic fixture model for Phase 1](adr-009.md) (proposed)
+- [ADR-010 Phase 2 builds only what runs produce](adr-010.md)
