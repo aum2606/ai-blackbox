@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PHASE1_TABLES = {"runs", "documents", "model_invocations", "retrieval_results", "spans"}
 PHASE2_TABLES = {"artifacts", "artifact_lineage", "trace_events"}
+PHASE3_TABLES = {"token_sequences", "capture_jobs", "measurements"}
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ def test_upgrade_then_downgrade(db_url: str) -> None:
     config = _alembic(db_url)
     command.upgrade(config, "head")
     engine = make_engine(db_url)
-    assert PHASE1_TABLES | PHASE2_TABLES <= set(inspect(engine).get_table_names())
+    assert PHASE1_TABLES | PHASE2_TABLES | PHASE3_TABLES <= set(inspect(engine).get_table_names())
     engine.dispose()
 
     command.downgrade(config, "base")
@@ -75,6 +76,28 @@ def test_artifact_references_are_foreign_keys(db_url: str) -> None:
                 "INSERT INTO documents (id, corpus_id, doc_key, version, sha256, source_path,"
                 " valid_from, artifact_id) VALUES ('doc_x','c','k',1,'h','p','2025-01-01',"
                 "'art_missing')"
+            )
+        )
+    engine.dispose()
+
+
+def test_phase3_downgrade_keeps_phase2_schema(db_url: str) -> None:
+    config = _alembic(db_url)
+    command.upgrade(config, "head")
+    command.downgrade(config, "0002")
+    tables = set(inspect(make_engine(db_url)).get_table_names())
+    assert PHASE2_TABLES <= tables and not PHASE3_TABLES & tables
+
+
+def test_measurement_requires_an_existing_artifact_and_job(db_url: str) -> None:
+    command.upgrade(_alembic(db_url), "head")
+    engine = make_engine(db_url)
+    with engine.connect() as connection, pytest.raises(IntegrityError):
+        connection.execute(
+            text(
+                "INSERT INTO measurements (id, capture_job_id, invocation_id, kind, hook_name,"
+                " token_position, artifact_id, dtype, shape_json, summary_json, created_at)"
+                " VALUES ('m','job_x','inv_x','activation','h',0,'art_x','float32','[1]','{}','t')"
             )
         )
     engine.dispose()
