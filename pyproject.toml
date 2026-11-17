@@ -1,0 +1,30 @@
+[project]
+name = "ai-blackbox-lab"
+version = "0.0.0"
+description = "Research-grade observability, interpretability and causal debugging for AI systems"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Runtime dependencies are added by the step that first uses them.
+dependencies = []
+
+[dependency-groups]
+dev = ["mypy>=1.10", "pytest>=8", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*.md"]  # docs hold illustrative, non-runnable snippets
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is the pytest idiom
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["apps/api", "apps/demo_rag", "packages"]
