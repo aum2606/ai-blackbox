@@ -8,7 +8,7 @@ Local-first, ₹0 observability + interpretability + causal debugging for AI sys
 
 ## Quick start
 
-See the [Phase 1 runbook](docs/runbooks/phase1_demo.md) for setup, the demo, the exit-test walkthrough, checks, backup and limitations. No cloud account or credentials are needed.
+See the [Phase 1 runbook](docs/runbooks/phase1_demo.md) (and the [Phase 2 runbook](docs/runbooks/phase2_evidence.md) for artifacts and trace events) for setup, the demo, the exit-test walkthrough, checks, backup and limitations. No cloud account or credentials are needed.
 
 ```bash
 uv sync && npm ci --prefix apps/dashboard && uv run alembic upgrade head

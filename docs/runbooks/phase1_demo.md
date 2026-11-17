@@ -64,7 +64,7 @@ After an intentional API change, refresh the contract snapshot with `UPDATE_SNAP
 
 ## Backup and restore
 
-Stop the API first, then copy the `.local/` folder (the database and its `-wal`/`-shm` files travel together). To restore, stop the API, replace `.local/` with the copy and restart. Phase 1 has no artifact directory yet; Phase 2 adds one and this procedure will then cover it as well.
+Stop the API first, then copy the `.local/` folder (the database and its `-wal`/`-shm` files travel together). To restore, stop the API, replace `.local/` with the copy and restart. From Phase 2 on, `.local/` also holds the artifact files; see the [Phase 2 runbook](phase2_evidence.md).
 
 ## Privacy defaults
 
